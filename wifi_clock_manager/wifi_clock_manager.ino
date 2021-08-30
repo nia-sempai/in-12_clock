@@ -5,6 +5,7 @@
 #include <WiFiManager.h>         // https://github.com/tzapu/WiFiManager
 #include <Time.h>                 //https://github.com/PaulStoffregen/Time
 #include <Timezone.h>             //https://github.com/JChristensen/Timezone
+
 #include <WiFiUdp.h>
 // Set web server port number to 80
 WiFiServer server(80);
@@ -12,35 +13,25 @@ const char * headerKeys[] = {"date", "server"};
 const size_t numberOfHeaders = 2;
 HTTPClient http;
 WiFiUDP Udp;
-// Local Port to Listen For UDP Packets
-unsigned int localPort = 2390;      // local port to listen for UDP packets
+
+unsigned int localPort = 2390;
 static const char ntpServerName[] = "time.google.com";
-static IPAddress  ntpServerIP; // NTP server's ip address
+static IPAddress  ntpServerIP;
+
 // Moscow Standard Time (MSK, does not observe DST)
 TimeChangeRule msk = {"MSK", Last, Sun, Mar, 1, 180};
 Timezone tzMSK(msk);
 TimeChangeRule *tcr;
-// Variable to store the HTTP request
-String header;
-const int         NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
-byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing packets
-// Auxiliar variables to store the current output state
-String output5State = "off";
-String output4State = "off";
+WiFiManager wifiManager;
 
-// Assign output variables to GPIO pins
-const int output5 = 5;
-const int output4 = 4;
+const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
+byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing packets
+
 
 void setup() {
   Serial.begin(9600);
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, LOW);
   Udp.begin(localPort);
-  WiFiManager wifiManager;
   wifiManager.autoConnect("AutoConnectAP");
-  // if you get here you have connected to the WiFi
-   digitalWrite(LED_BUILTIN, HIGH);
   Serial.println("Connected.");
   server.begin();
 }
@@ -49,10 +40,7 @@ void loop(){
   WiFi.hostByName(ntpServerName, ntpServerIP);
   sendNTPpacket(ntpServerIP); // send an NTP packet to a time server
   if (Udp.parsePacket()) {
-    // We've received a packet, read the data from it
-    Udp.read(packetBuffer, NTP_PACKET_SIZE); // read the packet into the buffer
-    //the timestamp starts at byte 40 of the received packet and is four bytes,
-    // or two words, long. First, esxtract the two words:
+    Udp.read(packetBuffer, NTP_PACKET_SIZE);
     unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
     unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
     // combine the four bytes (two words) into a long integer
@@ -89,8 +77,7 @@ void sendNTPpacket(IPAddress &address)
   packetBuffer[13] = 0x4E;
   packetBuffer[14] = 49;
   packetBuffer[15] = 52;
-  // all NTP fields have been given values, now
-  // you can send a packet requesting a timestamp:
+
   Udp.beginPacket(address, 123); //NTP requests are to port 123
   Udp.write(packetBuffer, NTP_PACKET_SIZE);
   Udp.endPacket();
